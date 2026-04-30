@@ -1,51 +1,55 @@
 # views/swp_calculator.py
 """
-SWP Calculator UI Page - FIXED VERSION with proper slider-input sync
+SWP Calculator UI Page
 """
 import streamlit as st
-from config import DEFAULTS, RANGES
+from config import DEFAULTS, RANGES, SS
 from calculators.swp import simulate_swp, max_sustainable_withdrawal
 from calculators.helpers import format_currency_str
 from components.metrics import metric_card
 from components.charts import create_swp_chart
 
 
-def render_swp_calculator(currency):
-    """Render the SWP Calculator page"""
+YEAR_TABLE_COLUMNS = {
+    "year":               "Year",
+    "begin_balance":      "Opening Balance",
+    "annual_withdrawal":  "Annual Withdrawal",
+    "interest_earned":    "Returns Earned",
+    "end_balance":        "Closing Balance",
+}
 
-    st.markdown("## 💸 SWP Calculator")
+
+def render_swp_calculator(currency):
+    """Render the SWP Calculator page."""
+
+    st.markdown("## \U0001f4b8 SWP Calculator")
     st.markdown("Plan your Systematic Withdrawal for retirement with step-up options")
 
-    # Input Section
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.markdown("#### 💰 Corpus Details")
+        st.markdown("#### \U0001f4b0 Corpus Details")
 
-        # --- Initial Corpus with slider + manual input (synchronized) ---
         corpus_col1, corpus_col2 = st.columns([3, 1])
+        SK = SS["swp_corpus_slider"]
+        IK = SS["swp_corpus_input"]
+        VK = SS["swp_corpus"]
 
-        slider_key = "initial_corpus_slider"
-        input_key = "initial_corpus_input"
+        if VK not in st.session_state:
+            st.session_state[VK] = DEFAULTS['swp']['initial_corpus']
+        if SK not in st.session_state:
+            st.session_state[SK] = st.session_state[VK]
+        if IK not in st.session_state:
+            st.session_state[IK] = st.session_state[VK]
 
-        # --- Initialize session state values once ---
-        if "initial_corpus" not in st.session_state:
-            st.session_state.initial_corpus = DEFAULTS['swp']['initial_corpus']
-        if slider_key not in st.session_state:
-            st.session_state[slider_key] = st.session_state.initial_corpus
-        if input_key not in st.session_state:
-            st.session_state[input_key] = st.session_state.initial_corpus
+        def sync_corpus_slider():
+            st.session_state[VK] = st.session_state[SK]
+            st.session_state[IK] = st.session_state[VK]
 
-        # --- Sync Functions ---
-        def sync_from_slider():
-            st.session_state.initial_corpus = st.session_state[slider_key]
-            st.session_state[input_key] = st.session_state.initial_corpus
+        def sync_corpus_input():
+            st.session_state[VK] = st.session_state[IK]
+            st.session_state[SK] = st.session_state[VK]
 
-        def sync_from_input():
-            st.session_state.initial_corpus = st.session_state[input_key]
-            st.session_state[slider_key] = st.session_state.initial_corpus
-
-        # --- Widgets ---
         with corpus_col1:
             st.slider(
                 "Initial Corpus",
@@ -53,23 +57,21 @@ def render_swp_calculator(currency):
                 max_value=RANGES['initial_corpus']['max'],
                 step=RANGES['initial_corpus']['step'],
                 help="Your retirement corpus at the start",
-                key=slider_key,
-                on_change=sync_from_slider,
+                key=SK,
+                on_change=sync_corpus_slider,
             )
-
         with corpus_col2:
             st.number_input(
                 "Manual",
                 min_value=RANGES['initial_corpus']['min'],
                 max_value=RANGES['initial_corpus']['max'],
                 step=RANGES['initial_corpus']['step'],
-                key=input_key,
+                key=IK,
                 label_visibility="collapsed",
-                on_change=sync_from_input,
+                on_change=sync_corpus_input,
             )
 
-        # --- Unified synced value ---
-        initial_corpus = st.session_state.initial_corpus
+        initial_corpus = st.session_state[VK]
         st.markdown(f"**{format_currency_str(currency, initial_corpus)}**")
 
         annual_return_pct = st.slider(
@@ -78,45 +80,40 @@ def render_swp_calculator(currency):
             max_value=RANGES['annual_return']['max'],
             value=DEFAULTS['swp']['annual_return'],
             step=RANGES['annual_return']['step'],
-            help="Expected average annual return on remaining corpus"
+            help="Expected average annual return on remaining corpus",
         )
-
         years = st.slider(
             "Plan Duration (Years)",
             min_value=RANGES['swp_years']['min'],
             max_value=RANGES['swp_years']['max'],
             value=DEFAULTS['swp']['years'],
             step=RANGES['swp_years']['step'],
-            help="How long you want the corpus to last"
+            help="How long you want the corpus to last",
         )
 
     with col2:
-        st.markdown("#### 💵 Withdrawal Details")
+        st.markdown("#### \U0001f4b5 Withdrawal Details")
 
-        # --- Monthly Withdrawal with slider + manual input (synchronized) ---
         withdrawal_col1, withdrawal_col2 = st.columns([3, 1])
+        SKW = SS["swp_withdrawal_slider"]
+        IKW = SS["swp_withdrawal_input"]
+        VKW = SS["swp_withdrawal"]
 
-        slider_key_w = "monthly_withdrawal_slider"
-        input_key_w = "monthly_withdrawal_input"
+        if VKW not in st.session_state:
+            st.session_state[VKW] = DEFAULTS['swp']['monthly_withdrawal']
+        if SKW not in st.session_state:
+            st.session_state[SKW] = st.session_state[VKW]
+        if IKW not in st.session_state:
+            st.session_state[IKW] = st.session_state[VKW]
 
-        # --- Initialize session state values once ---
-        if "monthly_withdrawal" not in st.session_state:
-            st.session_state.monthly_withdrawal = DEFAULTS['swp']['monthly_withdrawal']
-        if slider_key_w not in st.session_state:
-            st.session_state[slider_key_w] = st.session_state.monthly_withdrawal
-        if input_key_w not in st.session_state:
-            st.session_state[input_key_w] = st.session_state.monthly_withdrawal
+        def sync_withdrawal_slider():
+            st.session_state[VKW] = st.session_state[SKW]
+            st.session_state[IKW] = st.session_state[VKW]
 
-        # --- Sync Functions ---
-        def sync_from_slider_w():
-            st.session_state.monthly_withdrawal = st.session_state[slider_key_w]
-            st.session_state[input_key_w] = st.session_state.monthly_withdrawal
+        def sync_withdrawal_input():
+            st.session_state[VKW] = st.session_state[IKW]
+            st.session_state[SKW] = st.session_state[VKW]
 
-        def sync_from_input_w():
-            st.session_state.monthly_withdrawal = st.session_state[input_key_w]
-            st.session_state[slider_key_w] = st.session_state.monthly_withdrawal
-
-        # --- Widgets ---
         with withdrawal_col1:
             st.slider(
                 "Monthly Withdrawal",
@@ -124,23 +121,21 @@ def render_swp_calculator(currency):
                 max_value=RANGES['monthly_withdrawal']['max'],
                 step=RANGES['monthly_withdrawal']['step'],
                 help="Amount you want to withdraw each month",
-                key=slider_key_w,
-                on_change=sync_from_slider_w,
+                key=SKW,
+                on_change=sync_withdrawal_slider,
             )
-
         with withdrawal_col2:
             st.number_input(
                 "Manual",
                 min_value=RANGES['monthly_withdrawal']['min'],
                 max_value=RANGES['monthly_withdrawal']['max'],
                 step=RANGES['monthly_withdrawal']['step'],
-                key=input_key_w,
+                key=IKW,
                 label_visibility="collapsed",
-                on_change=sync_from_input_w,
+                on_change=sync_withdrawal_input,
             )
 
-        # --- Unified synced value ---
-        monthly_withdrawal = st.session_state.monthly_withdrawal
+        monthly_withdrawal = st.session_state[VKW]
         st.markdown(f"**{format_currency_str(currency, monthly_withdrawal)}/month**")
 
         step_up_pct = st.slider(
@@ -149,81 +144,67 @@ def render_swp_calculator(currency):
             max_value=RANGES['step_up']['max'],
             value=DEFAULTS['swp']['step_up'],
             step=RANGES['step_up']['step'],
-            help="Annual increase in withdrawal to counter inflation"
+            help="Annual increase in withdrawal to counter inflation",
         )
-
         use_inflation = st.checkbox("Show inflation-adjusted final corpus?", value=False)
         inflation_pct = st.slider(
             "Inflation (%)",
             min_value=RANGES['inflation']['min'],
             max_value=RANGES['inflation']['max'],
             value=DEFAULTS['swp']['inflation'],
-            step=RANGES['inflation']['step']
+            step=RANGES['inflation']['step'],
         )
-        show_table = st.checkbox("📊 Show yearly table", value=True)
+        show_table = st.checkbox("\U0001f4ca Show yearly table", value=True)
 
-    # Calculate
+    # ── Calculations ──────────────────────────────────────────────────────────
     annual_return = annual_return_pct / 100.0
-    step_up = step_up_pct / 100.0
-    inflation = inflation_pct / 100.0
+    step_up       = step_up_pct / 100.0
+    inflation     = inflation_pct / 100.0
 
     max_withdrawal = max_sustainable_withdrawal(initial_corpus, annual_return, years)
-    st.info(f"💡 Max sustainable monthly withdrawal ≈ {format_currency_str(currency, max_withdrawal)}")
+    st.info(f"\U0001f4a1 Max sustainable monthly withdrawal \u2248 {format_currency_str(currency, max_withdrawal)}")
 
-    # Simulate with and without step-up
-    df_monthly, df_year, exhausted_month = simulate_swp(
-        initial_corpus, annual_return, years, monthly_withdrawal, step_up, use_inflation, inflation
-    )
-    df_monthly_no_step, df_year_no_step, exhausted_month_no = simulate_swp(
-        initial_corpus, annual_return, years, monthly_withdrawal, 0.0, use_inflation, inflation
-    )
+    df_monthly,         df_year,         exhausted_month    = simulate_swp(initial_corpus, annual_return, years, monthly_withdrawal, step_up, use_inflation, inflation)
+    df_monthly_no_step, df_year_no_step, exhausted_month_no = simulate_swp(initial_corpus, annual_return, years, monthly_withdrawal, 0.0,     use_inflation, inflation)
 
-    # Calculate ending balances
-    end_balance = df_year["end_balance"].iloc[-1]
-    end_balance_no = df_year_no_step["end_balance"].iloc[-1]
-    end_balance_real = end_balance / ((1 + inflation) ** years) if inflation > 0 else end_balance
+    end_balance         = df_year["end_balance"].iloc[-1]
+    end_balance_no      = df_year_no_step["end_balance"].iloc[-1]
+    end_balance_real    = end_balance    / ((1 + inflation) ** years) if inflation > 0 else end_balance
     end_balance_no_real = end_balance_no / ((1 + inflation) ** years) if inflation > 0 else end_balance_no
 
-    # Conditional exhaustion warnings
+    # ── Exhaustion warnings ───────────────────────────────────────────────────
     if exhausted_month and exhausted_month_no:
-        st.error(f"⚠️ Corpus exhausted in both scenarios!")
-        st.warning(f"• **Without Step-Up**: Funds run out in {exhausted_month_no.strftime('%b %Y')}")
-        st.warning(f"• **With Step-Up**: Funds run out in {exhausted_month.strftime('%b %Y')}")
+        st.error("\u26a0\ufe0f Corpus exhausted in both scenarios!")
+        st.warning(f"\u2022 **Without Step-Up**: Funds run out in {exhausted_month_no.strftime('%b %Y')}")
+        st.warning(f"\u2022 **With Step-Up**: Funds run out in {exhausted_month.strftime('%b %Y')}")
     elif exhausted_month and not exhausted_month_no:
-        st.warning(f"⚠️ **With Step-Up**: Corpus exhausted in {exhausted_month.strftime('%b %Y')}")
-        st.info("✓ Without step-up, the corpus survives the full duration")
+        st.warning(f"\u26a0\ufe0f **With Step-Up**: Corpus exhausted in {exhausted_month.strftime('%b %Y')}")
+        st.info("\u2714 Without step-up, the corpus survives the full duration")
     elif exhausted_month_no and not exhausted_month:
-        st.warning(f"⚠️ **Without Step-Up**: Corpus exhausted in {exhausted_month_no.strftime('%b %Y')}")
-        st.success("✓ With step-up, the corpus survives the full duration")
+        st.warning(f"\u26a0\ufe0f **Without Step-Up**: Corpus exhausted in {exhausted_month_no.strftime('%b %Y')}")
+        st.success("\u2714 With step-up, the corpus survives the full duration")
 
-    # Display Results
-    st.markdown("### 📊 Ending Balance Metrics")
+    # ── Results ───────────────────────────────────────────────────────────────
+    st.markdown("### \U0001f4ca Ending Balance")
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(metric_card("Without Step-Up", format_currency_str(currency, end_balance_no), "Nominal", "neutral"),
-                    unsafe_allow_html=True)
+        st.markdown(metric_card("Without Step-Up", format_currency_str(currency, end_balance_no), "Nominal", "neutral"), unsafe_allow_html=True)
         if use_inflation:
-            st.markdown(
-                metric_card("Without Step-Up", format_currency_str(currency, end_balance_no_real), "Inflation Adjusted",
-                            "neutral"), unsafe_allow_html=True)
+            st.markdown(metric_card("Without Step-Up", format_currency_str(currency, end_balance_no_real), "Inflation Adjusted", "neutral"), unsafe_allow_html=True)
     with c2:
-        st.markdown(metric_card("With Step-Up", format_currency_str(currency, end_balance), "Nominal", "neutral"),
-                    unsafe_allow_html=True)
+        st.markdown(metric_card("With Step-Up", format_currency_str(currency, end_balance), "Nominal", "neutral"), unsafe_allow_html=True)
         if use_inflation:
-            st.markdown(
-                metric_card("With Step-Up", format_currency_str(currency, end_balance_real), "Inflation Adjusted",
-                            "neutral"), unsafe_allow_html=True)
+            st.markdown(metric_card("With Step-Up", format_currency_str(currency, end_balance_real), "Inflation Adjusted", "neutral"), unsafe_allow_html=True)
 
-    # Chart
-    st.markdown("### 📉 Corpus Over Time")
+    st.markdown("### \U0001f4c9 Corpus Over Time")
     fig = create_swp_chart(df_monthly_no_step, df_monthly, currency)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Table
     if show_table:
-        st.markdown("### 📋 Yearly Summary (With Step-Up)")
-        st.dataframe(
-            df_year[["year", "begin_balance", "annual_withdrawal", "interest_earned", "end_balance"]].round(0),
-            use_container_width=True,
-            height=400
+        st.markdown("### \U0001f4cb Year-by-Year Summary (With Step-Up)")
+        display_df = (
+            df_year[list(YEAR_TABLE_COLUMNS.keys())]
+            .round(0)
+            .rename(columns=YEAR_TABLE_COLUMNS)
         )
+        st.dataframe(display_df, use_container_width=True, height=400)

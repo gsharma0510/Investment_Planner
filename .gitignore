@@ -15,3 +15,7 @@ Thumbs.db
 
 # Streamlit
 .streamlit/
+
+#Running Instructions and Modular Structure
+running_the_app.md
+modular_structure.md
